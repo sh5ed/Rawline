@@ -94,8 +94,8 @@ Type: filesandordirs; Name: "{userappdata}\Rawline"
 Filename: "{app}\Rawline.exe"; Description: "{cm:LaunchProgram,Rawline}"; Flags: postinstall nowait skipifsilent
 
 [UninstallRun]
-; Removes this user's elevated-core task and protected ThroneCore copy; asks for UAC only when there is one.
-Filename: "{app}\Throne.exe"; Parameters: "--elevated-helper uninstall"; Flags: runhidden waituntilterminated; RunOnceId: "RevokeCoreElevation"
+; Removes this user's elevated-core task and protected RawlineCore copy; asks for UAC only when there is one.
+Filename: "{app}\Rawline.exe"; Parameters: "--elevated-helper uninstall"; Flags: runhidden waituntilterminated; RunOnceId: "RevokeCoreElevation"
 
 [Code]
 const

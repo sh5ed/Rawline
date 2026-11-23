@@ -23,6 +23,7 @@
 #include "include/global/Logger.hpp"
 #include "include/global/Utils.hpp"
 #include "include/sys/AutoRun.hpp"
+#include "include/sys/UrlScheme.hpp"
 #include "include/sys/windows/MiniDump.h"
 #include "include/sys/windows/guihelper.h"
 #include "3rdparty/WinCommander.hpp"
@@ -484,6 +485,8 @@ namespace Sys::CoreElevation {
     }
 
     bool CanGrant() {
+        // The same installer marker used by URL registration distinguishes an installed copy from a ZIP.
+        if (!UrlScheme_AutoRegisterByDefault()) return false;
         TOKEN_ELEVATION_TYPE type = TokenElevationTypeDefault;
         return coreElevationQueryToken(TokenElevationType, &type, sizeof(type)) && type == TokenElevationTypeLimited && !Windows_IsInAdmin();
     }
@@ -592,7 +595,10 @@ namespace Sys::CoreElevation {
         const QString sid = args.at(1);
         if (sid.isEmpty() || sid.compare(coreElevationUserSid(), Qt::CaseInsensitive) != 0) return HelperWrongUser;
 
-        if (action == QLatin1String("grant")) return coreElevationGrant(coreElevationLocalInstall(sid), args.value(2));
+        if (action == QLatin1String("grant")) {
+            if (!UrlScheme_AutoRegisterByDefault()) return HelperBadArguments;
+            return coreElevationGrant(coreElevationLocalInstall(sid), args.value(2));
+        }
         if (action == QLatin1String("revoke")) return coreElevationRevoke(coreElevationLocalInstall(sid));
         bool ok = false;
         if (action == QLatin1String("run-updater")) {

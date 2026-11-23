@@ -1687,8 +1687,9 @@ namespace {
 #ifdef Q_OS_WIN
         if (const auto id = window->internalWinId()) {
             // Use Windows' caption commands so the shell animates the transition with its current settings.
-            const WPARAM command = minimize ? SC_MINIMIZE : window->isMaximized() ? SC_RESTORE : SC_MAXIMIZE;
-            SendMessageW(reinterpret_cast<HWND>(id), WM_SYSCOMMAND, command, 0);
+            const auto hwnd = reinterpret_cast<HWND>(id);
+            const WPARAM command = minimize ? SC_MINIMIZE : IsZoomed(hwnd) ? SC_RESTORE : SC_MAXIMIZE;
+            SendMessageW(hwnd, WM_SYSCOMMAND, command, 0);
             return;
         }
 #endif

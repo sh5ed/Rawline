@@ -38,7 +38,7 @@ namespace Sys::CoreElevation {
     // Cached after the first call; any thread.
     Status CurrentStatus();
     void Invalidate();
-    // A split-token administrator whose Rawline is not elevated: the grant elevates this same account.
+    // A registered installation running unelevated under a split-token administrator.
     bool CanGrant();
     // Rawline.exe's directory accepts new files (an unelevated updater can replace it).
     bool InstallDirWritable();
