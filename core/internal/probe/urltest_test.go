@@ -2,12 +2,31 @@ package probe
 
 import (
 	"context"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"sync/atomic"
 	"testing"
 	"time"
 )
+
+func TestURLWarmupReusesConnectionWithSmallResponse(t *testing.T) {
+	clients := make(chan string, 2)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		clients <- r.RemoteAddr
+		_, _ = io.WriteString(w, "ready")
+	}))
+	defer server.Close()
+	if _, err := urlTestRequests(context.Background(), server.Client(), server.URL, time.Second, time.Second, true); err != nil {
+		t.Fatal(err)
+	}
+	if len(clients) != 2 {
+		t.Fatalf("expected two requests, received %d", len(clients))
+	}
+	if first, second := <-clients, <-clients; first != second {
+		t.Fatalf("measured request opened a new connection: %s and %s", first, second)
+	}
+}
 
 func TestURLWarmupDoesNotChangeMeasuredTimeout(t *testing.T) {
 	for _, slowMeasured := range []bool{false, true} {

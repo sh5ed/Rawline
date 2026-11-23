@@ -14,6 +14,7 @@ import (
 var URLReporter resultBuffer[URLTestResult]
 
 const URLTestTimeout = 5 * time.Second
+const urlTestDrainLimit = 64 * 1024
 
 type URLTestResult struct {
 	Duration time.Duration
@@ -124,6 +125,9 @@ func urlTest(ctx context.Context, client *http.Client, url string, timeout time.
 	if err != nil {
 		return 0, err
 	}
-	_ = resp.Body.Close()
-	return time.Since(begin), nil
+	duration := time.Since(begin)
+	defer resp.Body.Close()
+	// Finish small responses so the next measurement can reuse the connection.
+	_, _ = io.CopyN(io.Discard, resp.Body, urlTestDrainLimit)
+	return duration, nil
 }
