@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"RawlineCore/internal/boxbox"
+	"RawlineCore/internal/torproc"
 
 	C "github.com/sagernet/sing-box/constant"
 	"github.com/sagernet/sing-box/log"
@@ -26,6 +27,13 @@ func parseConfig(ctx context.Context, configContent []byte) (*option.Options, er
 			// The elevated core must keep state and received files in its own managed directories.
 			settings.StateDirectory = "tailscale"
 			settings.TaildropDirectory = "Taildrop"
+		}
+	}
+	for _, outbound := range options.Outbounds {
+		if settings, ok := outbound.Options.(*option.TorOutboundOptions); ok {
+			settings.ExecutablePath = torproc.ExecutablePath()
+			settings.DataDirectory = torproc.DataDirectoryPath()
+			settings.ExtraArgs = nil
 		}
 	}
 	return &options, nil

@@ -7,6 +7,8 @@ import (
 	"os"
 	"os/exec"
 	"os/user"
+	"path/filepath"
+	"runtime"
 	"slices"
 	"strconv"
 	"strings"
@@ -17,14 +19,28 @@ import (
 
 func startChild(path string, args []string, noOut bool, input *os.File, observers ...func([]byte)) (running, error) {
 	cmd := newCmd(path, args, noOut, input, observers...)
-	if err := applyPrivilegeDrop(cmd); err != nil {
+	if err := applyPrivilegeDrop(cmd, true); err != nil {
+		return nil, err
+	}
+	return startCmd(cmd)
+}
+
+// StartTor uses the caller's identity and resolves the expert bundle's shared libraries.
+func StartTor(path string, args []string) (running, error) {
+	cmd := newCmd(path, args, false, nil)
+	cmd.Stdout = &pipeLogger{prefix: "Tor"}
+	cmd.Stderr = &pipeLogger{prefix: "Tor"}
+	if runtime.GOOS == "linux" {
+		cmd.Env = append(cmd.Env, "LD_LIBRARY_PATH="+filepath.Dir(path))
+	}
+	if err := applyPrivilegeDrop(cmd, false); err != nil {
 		return nil, err
 	}
 	return startCmd(cmd)
 }
 
 // Under setuid-root the real uid still identifies the launching user; SysProcAttr.Credential setuids in the child before exec, race-free.
-func applyPrivilegeDrop(cmd *exec.Cmd) error {
+func applyPrivilegeDrop(cmd *exec.Cmd, guardGroup bool) error {
 	if os.Geteuid() != 0 {
 		return nil
 	}
@@ -36,7 +52,7 @@ func applyPrivilegeDrop(cmd *exec.Cmd) error {
 
 	gid := uint32(rgid)
 	groups := supplementaryGroups(ruid, rgid)
-	if guard.IdentityEnabled() {
+	if guardGroup && guard.IdentityEnabled() {
 		// The kill switch admits the extra core by its primary group; the user's own groups keep its file access.
 		gid = guard.GID
 		if !slices.Contains(groups, uint32(rgid)) {

@@ -46,6 +46,26 @@ func startChild(path string, args []string, noOut bool, input *os.File, observer
 	return startWithToken(path, args, noOut, tok, input, observers...)
 }
 
+// StartTor never runs the downloaded executable with the core's elevated token.
+func StartTor(path string, args []string) (running, error) {
+	self, err := selfToken()
+	if err != nil {
+		return nil, fmt.Errorf("cannot open process token: %w", err)
+	}
+	defer self.Close()
+	if !self.IsElevated() {
+		cmd := newCmd(path, args, false, nil)
+		cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true, CreationFlags: windows.CREATE_NO_WINDOW}
+		return startCmd(cmd)
+	}
+	token, err := restrictedSelfToken(self)
+	if err != nil {
+		return nil, fmt.Errorf("cannot obtain an unprivileged Tor token: %w", err)
+	}
+	defer token.Close()
+	return startRestrictedSelf(path, args, false, token, nil)
+}
+
 // Restricted self tokens do not require SeAssignPrimaryTokenPrivilege, but
 // CreateProcessAsUser can still require SeIncreaseQuotaPrivilege. Use the same
 // restricted token with Secondary Logon when that privilege is unavailable.
