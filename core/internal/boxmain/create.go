@@ -21,6 +21,13 @@ func parseConfig(ctx context.Context, configContent []byte) (*option.Options, er
 	if err != nil {
 		return nil, E.Cause(err, "decode config at ", string(configContent))
 	}
+	for _, endpoint := range options.Endpoints {
+		if settings, ok := endpoint.Options.(*option.TailscaleEndpointOptions); ok {
+			// The elevated core must keep state and received files in its own managed directories.
+			settings.StateDirectory = "tailscale"
+			settings.TaildropDirectory = "Taildrop"
+		}
+	}
 	return &options, nil
 }
 
