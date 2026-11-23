@@ -429,6 +429,24 @@ func restrictedSelfToken(self windows.Token) (windows.Token, error) {
 	return tok, nil
 }
 
+// UserImpersonationToken filters privileges before accessing files named by the unelevated GUI.
+func UserImpersonationToken() (windows.Token, error) {
+	self, err := selfToken()
+	if err != nil {
+		return 0, err
+	}
+	defer self.Close()
+	primary, err := restrictedSelfToken(self)
+	if err != nil {
+		return 0, err
+	}
+	defer primary.Close()
+	var token windows.Token
+	err = windows.DuplicateTokenEx(primary, windows.TOKEN_IMPERSONATE|windows.TOKEN_QUERY, nil,
+		windows.SecurityImpersonation, windows.TokenImpersonation, &token)
+	return token, err
+}
+
 // Only groups actually present in the token: CreateRestrictedToken rejects a SID the token does not carry.
 func adminGroups(groups *windows.Tokengroups) []windows.SIDAndAttributes {
 	var out []windows.SIDAndAttributes
