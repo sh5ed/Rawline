@@ -237,13 +237,23 @@ func netstackRoundTrips(t *testing.T, network *netstack.Net, peer *netstack.Net,
 	}
 	defer c.Close()
 	_ = c.SetDeadline(time.Now().Add(5 * time.Second))
-	_, e = c.Write([]byte("netstack TCP"))
-	if e != nil {
-		t.Fatal(e)
+	payload := bytes.Repeat([]byte("netstack"), 1<<19)
+	uploaded := make(chan error, 1)
+	go func() {
+		// Hide bytes.Reader.WriteTo so the uploader uses the same chunks as a typical relay.
+		reader := struct{ io.Reader }{bytes.NewReader(payload)}
+		_, err := io.Copy(c, reader)
+		uploaded <- err
+	}()
+	echo := make([]byte, len(payload))
+	if _, e = io.ReadFull(c, echo); e != nil {
+		t.Fatalf("netstack TCP bulk read: %v", e)
 	}
-	b := make([]byte, 12)
-	if _, e = io.ReadFull(c, b); e != nil || string(b) != "netstack TCP" {
-		t.Fatalf("netstack TCP: %q %v", b, e)
+	if err := <-uploaded; err != nil {
+		t.Fatalf("netstack TCP bulk write: %v", err)
+	}
+	if !bytes.Equal(echo, payload) {
+		t.Fatal("netstack TCP bulk transfer changed the payload")
 	}
 	u, e := peer.ListenUDP(&net.UDPAddr{IP: net.ParseIP(peerIP), Port: 30053})
 	if e != nil {
@@ -264,6 +274,7 @@ func netstackRoundTrips(t *testing.T, network *netstack.Net, peer *netstack.Net,
 	defer d.Close()
 	_ = d.SetDeadline(time.Now().Add(5 * time.Second))
 	_, _ = d.Write([]byte("netstack UDP"))
+	b := make([]byte, 12)
 	n, e := d.Read(b)
 	if e != nil || string(b[:n]) != "netstack UDP" {
 		t.Fatalf("netstack UDP: %v", e)
@@ -392,7 +403,9 @@ func TestPrivateBridgeConfig(t *testing.T) {
 	}
 	for _, bad := range []string{strings.Replace(updated, `"tcp"`, `"tls"`, 1), strings.Replace(updated, "192.0.2.1:443", "192.0.2.1:65536", 1), strings.Replace(updated, "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", "bad-key", 1)} {
 		_ = os.WriteFile(p, []byte(bad), 0600)
-		if _, err := readBridgeConfig(p); err == nil { t.Fatal("invalid 1.4.5 configuration accepted") }
+		if _, err := readBridgeConfig(p); err == nil {
+			t.Fatal("invalid 1.4.5 configuration accepted")
+		}
 	}
 }
 
