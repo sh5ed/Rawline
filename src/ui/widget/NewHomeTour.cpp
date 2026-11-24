@@ -512,16 +512,25 @@ void NewHome::runTour(MainWindow *mw, const QString &dir) {
                 const auto *caption = mw->findChild<QWidget *>(QStringLiteral("rawlineMainCaption"));
                 check(caption && caption->isVisible() == custom && caption->findChildren<QAbstractButton *>().size() == 3,
                       "the wrong caption is visible");
+                check(hasCaption(mainId) != custom, "the native main-window caption has the wrong state");
                 checkClientFrame(mainId, custom);
             };
             const auto checkDialogCaption = [&](bool custom) {
                 const auto *caption = dialog.findChild<QWidget *>(QStringLiteral("newDialogBar"));
                 check(bool(caption && caption->isVisible()) == custom, "the dialog has the wrong title bar");
+                check(hasCaption(dialogId) != custom, "the native dialog caption has the wrong state");
                 checkClientFrame(dialogId, custom);
             };
             checkMainCaption(true);
             checkDialogCaption(true);
             check(hasRoundedRegion(mainId) && hasRoundedRegion(dialogId), "new Windows frame is still rectangular");
+            const auto previousTitle = mw->windowTitle();
+            mw->setWindowTitle(QStringLiteral("Rawline caption regression"));
+            dialog.setWindowTitle(QStringLiteral("Dialog caption regression"));
+            QApplication::processEvents();
+            checkMainCaption(true);
+            checkDialogCaption(true);
+            mw->setWindowTitle(previousTitle);
 #else
             check(dialog.testAttribute(Qt::WA_TranslucentBackground), "new dialog must have a translucent surface");
 #endif

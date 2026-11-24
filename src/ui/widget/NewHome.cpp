@@ -297,8 +297,8 @@ namespace {
 
 #ifdef Q_OS_WIN
     bool handleWindowsFrame(QWidget *window, const MSG *msg, qintptr *result) {
-        if (msg->message == WM_NCCALCSIZE && msg->wParam) {
-            if (IsZoomed(msg->hwnd)) {
+        if (msg->message == WM_NCCALCSIZE) {
+            if (msg->wParam && IsZoomed(msg->hwnd)) {
                 RECT &client = reinterpret_cast<NCCALCSIZE_PARAMS *>(msg->lParam)->rgrc[0];
                 MONITORINFO monitor{sizeof(MONITORINFO)};
                 if (GetMonitorInfoW(MonitorFromRect(&client, MONITOR_DEFAULTTONEAREST), &monitor))
@@ -328,11 +328,29 @@ namespace {
     }
 
     void recalculateWindowsFrame(QWidget *window) {
-        if (const auto hwnd = reinterpret_cast<HWND>(window->internalWinId())) {
-            SetWindowPos(hwnd, nullptr, 0, 0, 0, 0,
-                         SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
-            NewStyle::themeFrame(window);
+        const auto id = window->internalWinId();
+        if (!id) return;
+        const auto hwnd = reinterpret_cast<HWND>(id);
+        const auto oldStyle = GetWindowLongPtrW(hwnd, GWL_STYLE);
+        auto newStyle = oldStyle;
+        constexpr LONG_PTR captionMask = WS_CAPTION;
+        const auto savedWindow = window->property("rawlineSavedCaptionWindow").toULongLong();
+        if (NewStyle::active()) {
+            if (savedWindow != quint64(id)) {
+                window->setProperty("rawlineSavedCaptionWindow", quint64(id));
+                window->setProperty("rawlineSavedCaptionBits", quint32(oldStyle & captionMask));
+            }
+            // DefWindowProc can draw WS_CAPTION on title/activation changes without sending WM_NCPAINT.
+            newStyle &= ~captionMask;
+        } else if (savedWindow == quint64(id)) {
+            newStyle |= window->property("rawlineSavedCaptionBits").toUInt();
+            window->setProperty("rawlineSavedCaptionWindow", QVariant());
+            window->setProperty("rawlineSavedCaptionBits", QVariant());
         }
+        if (newStyle != oldStyle) SetWindowLongPtrW(hwnd, GWL_STYLE, newStyle);
+        NewStyle::themeFrame(window);
+        SetWindowPos(hwnd, nullptr, 0, 0, 0, 0,
+                     SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
     }
 
     void clipNativeFrame(QWidget *window, HWND hwnd, bool themed) {
@@ -695,6 +713,11 @@ void NewStyle::themeFrame(QWidget *window) {
     const bool themed = active();
     clipNativeFrame(window, hwnd, themed);
     if (!set) return;
+    if (qobject_cast<MainWindow *>(window) || qobject_cast<QDialog *>(window)) {
+        // Let DWM paint the system frame again when leaving a Rawline theme.
+        const DWORD policy = themed && (qobject_cast<MainWindow *>(window) || window->property("newFrame").toBool()) ? 1 : 0;
+        set(hwnd, 2 /* DWMWA_NCRENDERING_POLICY */, &policy, sizeof policy);
+    }
     const BOOL dark = themed ? !light() : qApp->palette().color(QPalette::Window).lightness() < 128;
     set(hwnd, 20 /* DWMWA_USE_IMMERSIVE_DARK_MODE */, &dark, sizeof dark);
     // Windows 11 paints the caption in the theme's own ground and ink; older systems ignore these.
@@ -3607,10 +3630,10 @@ void MainWindow::syncWindowFrame() {
                                                property("rawlineCustomCaption").toBool() != custom)) {
         setProperty("rawlineCaptionWindow", quint64(id));
         setProperty("rawlineCustomCaption", custom);
-        SetWindowPos(reinterpret_cast<HWND>(id), nullptr, 0, 0, 0, 0,
-                     SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
+        recalculateWindowsFrame(this);
+    } else {
+        NewStyle::themeFrame(this);
     }
-    NewStyle::themeFrame(this);
 #else
     const bool frameless = NewStyle::active();
     if (bool(windowFlags() & Qt::FramelessWindowHint) == frameless) return;
