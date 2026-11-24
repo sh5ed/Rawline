@@ -13,7 +13,6 @@
 #include "include/configs/common/ResolverSource.h"
 #include "include/configs/common/utils.h"
 #include "include/configs/outbounds/tor.h"
-#include "include/engine/services/AssetUpdates.h"
 #include "include/global/Configs.hpp"
 
 #include <atomic>
@@ -1005,7 +1004,7 @@ namespace Configs {
             ctx.l3Bridge = l3BridgeEnabled(ctx) && !(routeChain->isRaw && routeChain->preventModifications);
 
             if (torExit()) {
-                if (!Engine::AssetUpdates::TorInstalled()) {
+                if (!tor::IsInstalled()) {
                     ctx.error = QObject::tr("Tor is enabled but not downloaded yet. Open Routing Settings > Tor and press OK to download it.");
                     return;
                 }

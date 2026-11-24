@@ -16,6 +16,7 @@
 #include <QTimer>
 
 #include "include/api/RPC.h"
+#include "include/configs/outbounds/tor.h"
 #include "include/engine/EnginePolicy.h"
 #include "include/engine/EngineTr.h"
 #include "include/engine/ThreadCheck.h"
@@ -248,14 +249,6 @@ namespace Engine::AssetUpdates {
 
         std::atomic<bool> assetTorBusy{false};
 
-        QString assetTorExecutable() {
-#ifdef Q_OS_WIN
-            return QDir(QStringLiteral("tor")).absoluteFilePath(QStringLiteral("tor.exe"));
-#else
-            return QDir(QStringLiteral("tor")).absoluteFilePath(QStringLiteral("tor"));
-#endif
-        }
-
         QString assetTorPlatform() {
 #if defined(Q_OS_WIN) && defined(Q_PROCESSOR_X86_64)
             return QStringLiteral("windows-x86_64");
@@ -279,7 +272,7 @@ namespace Engine::AssetUpdates {
         // Expert-bundle binaries are unsigned, and Apple Silicon kills unsigned code.
         QString assetTorAdHocSign() {
             const QDir dir(QStringLiteral("tor"));
-            QStringList files{assetTorExecutable()};
+            QStringList files{Configs::tor::ExecutablePath()};
             for (const auto &name : dir.entryList({QStringLiteral("*.dylib")}, QDir::Files)) files << dir.absoluteFilePath(name);
             for (const auto &file : files) {
                 if (QProcess::execute(QStringLiteral("/usr/bin/codesign"), {QStringLiteral("--verify"), file}) == 0) continue;
@@ -338,7 +331,7 @@ namespace Engine::AssetUpdates {
     } // namespace
 
     bool TorInstalled() {
-        return QFileInfo(assetTorExecutable()).isFile();
+        return Configs::tor::IsInstalled();
     }
 
     bool InstallTor(std::function<void(const QString &error)> done) {
