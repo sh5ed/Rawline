@@ -66,12 +66,19 @@ jobs:
     
           ls -la build-ctx/linux-amd64/
 
-      - name: Get RAWLINE_API_REF
+      - name: Get RAWLINE_API_REF and patch Dockerfile
         id: ref
         run: |
-          API_REF=$(curl -fsSL https://raw.githubusercontent.com/throneproj/Throne/dev/.github/workflows/build.yml | grep -oE 'RAWLINE_API_REF:\s*[a-f0-9]+' | awk '{print $2}' | head -n 1)
-          [ -z "$API_REF" ] && API_REF="main"
+          API_REF=$(grep -rnE 'RAWLINE_API_REF' .github/workflows/ | grep -oE '[a-f0-9]{7,40}' | head -n 1)
+          if [ -z "$API_REF" ]; then
+            API_REF=$(git ls-remote https://github.com/throneproj/Throne-api.git refs/heads/dev | awk '{print $1}')
+          fi
+          [ -z "$API_REF" ] && API_REF="dev"
+          echo "Using RAWLINE_API_REF: $API_REF"
           echo "api_ref=$API_REF" >> $GITHUB_OUTPUT
+  
+          # На случай если в Throne-api путь к CLI называется иначе, чем ./cmd/rawlinectl
+          sed -i 's|go build -trimpath -o /out/rawlinectl ./cmd/rawlinectl|go build -trimpath -o /out/rawlinectl $(dirname $(find . -name "main.go" \| grep -E "rawline\|ctl" \| head -n 1))|g' build-ctx/Dockerfile
 
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
