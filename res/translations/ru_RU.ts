@@ -4434,6 +4434,30 @@ A domain listed with only one address family is answered NXDOMAIN for the other,
         <source>Delete the rule?</source>
         <translation>Удалить правило?</translation>
     </message>
+    <message>
+        <source>Sends proxied traffic out through Tor, over the selected server. TCP only.</source>
+        <translation>Направляет трафик прокси через Tor поверх выбранного сервера. Только TCP.</translation>
+    </message>
+    <message>
+        <source>Exit through Tor</source>
+        <translation>Выход через Tor</translation>
+    </message>
+    <message>
+        <source>Tor is installed.</source>
+        <translation>Tor установлен.</translation>
+    </message>
+    <message>
+        <source>Tor will be downloaded when you press OK.</source>
+        <translation>Tor будет скачан после нажатия «ОК».</translation>
+    </message>
+    <message>
+        <source>Tor download failed</source>
+        <translation>Не удалось скачать Tor</translation>
+    </message>
+    <message>
+        <source>[Tor] A download is already running; turn Tor on again once it finishes.</source>
+        <translation>[Tor] Загрузка уже идёт. Включите Tor после её завершения.</translation>
+    </message>
 </context>
 <context>
     <name>DialogNewScan</name>
@@ -13661,6 +13685,38 @@ Release note:
         <source>real connections failing — retried soon</source>
         <translation>реальные соединения падают — скоро повтор</translation>
     </message>
+    <message>
+        <source>Tor is enabled but not downloaded yet. Open Routing Settings &gt; Tor and press OK to download it.</source>
+        <translation>Tor включён, но ещё не скачан. Откройте настройки маршрутизации, перейдите на вкладку Tor и нажмите «ОК».</translation>
+    </message>
+    <message>
+        <source>Could not sign %1 (codesign exit code %2).</source>
+        <translation>Не удалось подписать %1 (код завершения codesign: %2).</translation>
+    </message>
+    <message>
+        <source>The Tor Project publishes no Tor build for this platform.</source>
+        <translation>Tor Project не выпускает сборку для этой платформы.</translation>
+    </message>
+    <message>
+        <source>Could not look up the Tor version: %1</source>
+        <translation>Не удалось узнать версию Tor: %1</translation>
+    </message>
+    <message>
+        <source>The Tor download list names no usable version.</source>
+        <translation>В списке загрузок Tor нет подходящей версии.</translation>
+    </message>
+    <message>
+        <source>Could not get the Tor checksums: %1</source>
+        <translation>Не удалось получить контрольные суммы Tor: %1</translation>
+    </message>
+    <message>
+        <source>%1 is not in the Tor Project's checksum list.</source>
+        <translation>%1 отсутствует в списке контрольных сумм Tor Project.</translation>
+    </message>
+    <message>
+        <source>The core did not answer.</source>
+        <translation>Ядро не ответило.</translation>
+    </message>
 </context>
 <context>
     <name>QPlatformTheme</name>
@@ -19133,6 +19189,10 @@ connection</source>
     <message>
         <source>Error: %1</source>
         <translation>Ошибка: %1</translation>
+    </message>
+    <message>
+        <source>Onion sites via Tor (Rawline)</source>
+        <translation>Сайты .onion через Tor (Rawline)</translation>
     </message>
 </context>
 <context>
