@@ -297,6 +297,12 @@ namespace {
 
 #ifdef Q_OS_WIN
     bool handleWindowsFrame(QWidget *window, const MSG *msg, qintptr *result) {
+        if (msg->message == WM_STYLECHANGING && static_cast<int>(msg->wParam) == GWL_STYLE &&
+            window->property("rawlineSavedCaptionWindow").toULongLong() == quint64(reinterpret_cast<quintptr>(msg->hwnd))) {
+            // Qt can reapply the window style after the handle was configured.
+            reinterpret_cast<STYLESTRUCT *>(msg->lParam)->styleNew &= ~DWORD(WS_CAPTION);
+            return false;
+        }
         if (msg->message == WM_NCCALCSIZE) {
             if (msg->wParam && IsZoomed(msg->hwnd)) {
                 RECT &client = reinterpret_cast<NCCALCSIZE_PARAMS *>(msg->lParam)->rgrc[0];
@@ -460,7 +466,7 @@ namespace {
             if (!NewStyle::active() || eventType != "windows_generic_MSG") return false;
             const auto *msg = static_cast<const MSG *>(message);
             if (msg->message != WM_NCCALCSIZE && msg->message != WM_NCPAINT &&
-                msg->message != WM_NCACTIVATE && msg->message != WM_NCHITTEST) return false;
+                msg->message != WM_NCACTIVATE && msg->message != WM_NCHITTEST && msg->message != WM_STYLECHANGING) return false;
             auto *window = QWidget::find(reinterpret_cast<WId>(msg->hwnd));
             return window && window->property("newFrame").toBool() && handleWindowsFrame(window, msg, result);
         }

@@ -527,6 +527,10 @@ void NewHome::runTour(MainWindow *mw, const QString &dir) {
             const auto previousTitle = mw->windowTitle();
             mw->setWindowTitle(QStringLiteral("Rawline caption regression"));
             dialog.setWindowTitle(QStringLiteral("Dialog caption regression"));
+            for (const auto id : {mainId, dialogId}) {
+                const auto hwnd = reinterpret_cast<HWND>(id);
+                SetWindowLongPtrW(hwnd, GWL_STYLE, GetWindowLongPtrW(hwnd, GWL_STYLE) | WS_CAPTION);
+            }
             QApplication::processEvents();
             checkMainCaption(true);
             checkDialogCaption(true);
