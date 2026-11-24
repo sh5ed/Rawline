@@ -58,23 +58,20 @@ jobs:
           RELEASE_JSON=$(curl -fsSL "https://api.github.com/repos/throneproj/Throne/releases?per_page=1")
           RELEASE_URL=$(echo "$RELEASE_JSON" | grep -oE '"browser_download_url":\s*"[^"]*linux-amd64\.zip"' | head -n 1 | cut -d'"' -f4)
 
-          if [ -z "$RELEASE_URL" ]; then
-            echo "Could not find linux-amd64.zip in release assets"
-            exit 1
-          fi
-
           echo "Downloading: $RELEASE_URL"
           curl -fsSL "$RELEASE_URL" -o rawline.zip
           unzip -q rawline.zip -d extracted
 
-          SUBDIR=$(find extracted -mindepth 1 -maxdepth 1 -type d | head -n 1)
-          if [ -n "$SUBDIR" ] && [ "$(ls -1 extracted | wc -l)" -eq 1 ]; then
-            cp -r "$SUBDIR"/. build-ctx/linux-amd64/
-          else
-            cp -r extracted/. build-ctx/linux-amd64/
-          fi
+          BIN_PATH=$(find extracted -type f \( -name "Rawline" -o -name "Throne" \) | head -n 1)
+          BIN_DIR=$(dirname "$BIN_PATH")
+          cp -r "$BIN_DIR"/. build-ctx/linux-amd64/
 
-          ls -la build-ctx/linux-amd64/
+          # Создаём символические ссылки Rawline -> Throne и RawlineCore -> ThroneCore
+          cd build-ctx/linux-amd64
+          [ -f Throne ] && [ ! -e Rawline ] && ln -s Throne Rawline
+          [ -f ThroneCore ] && [ ! -e RawlineCore ] && ln -s ThroneCore RawlineCore
+          chmod +x Throne ThroneCore thronectl Rawline RawlineCore
+          ls -la
 
       - name: Patch Dockerfile for Throne-api
         run: |
