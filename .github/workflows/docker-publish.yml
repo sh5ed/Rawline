@@ -48,13 +48,23 @@ jobs:
 
       - name: Download Rawline ${{ needs.check_release.outputs.tag }} linux-amd64
         run: |
-          mkdir -p build-ctx/linux-amd64
+          mkdir -p build-ctx/linux-amd64 extracted
           cp docker/Dockerfile build-ctx/Dockerfile
           RELEASE_URL=$(curl -fsSL https://api.github.com/repos/throneproj/Throne/releases/latest | grep -oE '"browser_download_url":\s*"[^"]*linux-amd64\.zip"' | cut -d'"' -f4 | head -n 1)
+          echo "Downloading: $RELEASE_URL"
           curl -fsSL "$RELEASE_URL" -o rawline.zip
           unzip -q rawline.zip -d extracted
-          RAW_DIR=$(find extracted -type f -name "Rawline" -exec dirname {} \; | head -n 1)
-          mv "$RAW_DIR"/* build-ctx/linux-amd64/
+          ls -la extracted
+    
+          # Если внутри архива одна папка — берём содержимое из неё, иначе из корня extracted
+          SUBDIR=$(find extracted -mindepth 1 -maxdepth 1 -type d | head -n 1)
+          if [ -n "$SUBDIR" ] && [ "$(ls -1 extracted | wc -l)" -eq 1 ]; then
+            cp -r "$SUBDIR"/. build-ctx/linux-amd64/
+          else
+            cp -r extracted/. build-ctx/linux-amd64/
+          fi
+    
+          ls -la build-ctx/linux-amd64/
 
       - name: Get RAWLINE_API_REF
         id: ref
