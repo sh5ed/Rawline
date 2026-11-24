@@ -1,0 +1,82 @@
+name: Build Rawline on New Release
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 */6 * * *' # Проверка каждые 6 часов (занимает 3 секунды, если обновлений нет)
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  check_release:
+    runs-on: ubuntu-latest
+    outputs:
+      should_build: ${{ steps.check.outputs.should_build }}
+      tag: ${{ steps.check.outputs.tag }}
+    steps:
+      - name: Compare upstream release tag with GHCR tag
+        id: check
+        run: |
+          LATEST_TAG=$(curl -fsSL https://api.github.com/repos/throneproj/Throne/releases/latest | grep -oE '"tag_name":\s*"[^"]+"' | cut -d'"' -f4)
+          echo "Latest upstream tag: $LATEST_TAG"
+
+          # Проверяем, существует ли уже образ с этим тегом в вашем GHCR
+          TOKEN=$(echo -n "${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}" | base64 -w0)
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            -H "Authorization: Bearer $TOKEN" \
+            -H "Accept: application/vnd.oci.image.index.v1+json" \
+            "https://ghcr.io/v2/${{ github.repository_owner }}/rawline/manifests/$LATEST_TAG")
+
+          if [ "$STATUS" = "200" ]; then
+            echo "Image for $LATEST_TAG already exists. Skipping build."
+            echo "should_build=false" >> $GITHUB_OUTPUT
+          else
+            echo "New version $LATEST_TAG detected! Starting build."
+            echo "should_build=true" >> $GITHUB_OUTPUT
+            echo "tag=$LATEST_TAG" >> $GITHUB_OUTPUT
+          fi
+
+  build:
+    needs: check_release
+    if: needs.check_release.outputs.should_build == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download Rawline ${{ needs.check_release.outputs.tag }} linux-amd64
+        run: |
+          mkdir -p build-ctx/linux-amd64
+          cp docker/Dockerfile build-ctx/Dockerfile
+          RELEASE_URL=$(curl -fsSL https://api.github.com/repos/throneproj/Throne/releases/latest | grep -oE '"browser_download_url":\s*"[^"]*linux-amd64\.zip"' | cut -d'"' -f4 | head -n 1)
+          curl -fsSL "$RELEASE_URL" -o rawline.zip
+          unzip -q rawline.zip
+          mv Rawline/* build-ctx/linux-amd64/
+
+      - name: Get RAWLINE_API_REF
+        id: ref
+        run: |
+          API_REF=$(curl -fsSL https://raw.githubusercontent.com/throneproj/Throne/main/.github/workflows/build.yml | grep -oE 'RAWLINE_API_REF:\s*[a-f0-9]+' | awk '{print $2}' | head -n 1)
+          [ -z "$API_REF" ] && API_REF="main"
+          echo "api_ref=$API_REF" >> $GITHUB_OUTPUT
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./build-ctx
+          platforms: linux/amd64
+          push: true
+          build-args: |
+            RAWLINE_API_REF=${{ steps.ref.outputs.api_ref }}
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/rawline:latest
+            ghcr.io/${{ github.repository_owner }}/rawline:${{ needs.check_release.outputs.tag }}
