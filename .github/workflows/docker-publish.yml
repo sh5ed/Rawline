@@ -52,8 +52,9 @@ jobs:
           cp docker/Dockerfile build-ctx/Dockerfile
           RELEASE_URL=$(curl -fsSL https://api.github.com/repos/throneproj/Throne/releases/latest | grep -oE '"browser_download_url":\s*"[^"]*linux-amd64\.zip"' | cut -d'"' -f4 | head -n 1)
           curl -fsSL "$RELEASE_URL" -o rawline.zip
-          unzip -q rawline.zip
-          mv Rawline/* build-ctx/linux-amd64/
+          unzip -q rawline.zip -d extracted
+          RAW_DIR=$(find extracted -type f -name "Rawline" -exec dirname {} \; | head -n 1)
+          mv "$RAW_DIR"/* build-ctx/linux-amd64/
 
       - name: Get RAWLINE_API_REF
         id: ref
