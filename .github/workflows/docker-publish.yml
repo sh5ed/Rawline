@@ -74,17 +74,14 @@ jobs:
           BIN_PATH=$(find extracted -type f \( -name "Rawline" -o -name "Throne" \) | head -n 1)
           BIN_DIR=$(dirname "$BIN_PATH")
           cp -r "$BIN_DIR"/. build-ctx/linux-amd64/
+          chmod +x build-ctx/linux-amd64/Throne build-ctx/linux-amd64/ThroneCore build-ctx/linux-amd64/thronectl
+          ls -la build-ctx/linux-amd64/
 
-          cd build-ctx/linux-amd64
-          [ -f Throne ] && [ ! -f Rawline ] && cp Throne Rawline
-          [ -f ThroneCore ] && [ ! -f RawlineCore ] && cp ThroneCore RawlineCore
-          chmod +x Throne ThroneCore thronectl Rawline RawlineCore
-          ls -la
-
-      - name: Patch Dockerfile for Throne-api
+      - name: Patch Dockerfile for Throne-api and Entrypoint
         run: |
           sed -i 's|if \[ -z "\$RAWLINE_API_REF" \].*git checkout -q FETCH_HEAD|git clone --depth=1 https://github.com/throneproj/Throne-api.git .|g' build-ctx/Dockerfile
           sed -i 's|go build -trimpath -o /out/rawlinectl ./cmd/rawlinectl|go build -trimpath -o /out/rawlinectl $(dirname $(find . -name "main.go" \| head -n 1))|g' build-ctx/Dockerfile
+          sed -i 's|/opt/Rawline/Rawline|/opt/Rawline/Throne|g' build-ctx/Dockerfile
 
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
