@@ -35,11 +35,11 @@ jobs:
             -H "Accept: application/vnd.oci.image.index.v1+json" \
             "https://ghcr.io/v2/${{ github.repository_owner }}/rawline/manifests/$LATEST_TAG")
 
-          if [ "$STATUS" = "200" ]; then
+          if [ "$STATUS" = "200" ] && [ "${{ github.event_name }}" != "workflow_dispatch" ]; then
             echo "Image for $LATEST_TAG already exists. Skipping build."
             echo "should_build=false" >> $GITHUB_OUTPUT
           else
-            echo "New version $LATEST_TAG detected! Starting build."
+            echo "Building image for $LATEST_TAG."
             echo "should_build=true" >> $GITHUB_OUTPUT
             echo "tag=$LATEST_TAG" >> $GITHUB_OUTPUT
           fi
@@ -76,8 +76,8 @@ jobs:
           cp -r "$BIN_DIR"/. build-ctx/linux-amd64/
 
           cd build-ctx/linux-amd64
-          [ -f Throne ] && [ ! -e Rawline ] && ln -s Throne Rawline
-          [ -f ThroneCore ] && [ ! -e RawlineCore ] && ln -s ThroneCore RawlineCore
+          [ -f Throne ] && [ ! -f Rawline ] && cp Throne Rawline
+          [ -f ThroneCore ] && [ ! -f RawlineCore ] && cp ThroneCore RawlineCore
           chmod +x Throne ThroneCore thronectl Rawline RawlineCore
           ls -la
 
