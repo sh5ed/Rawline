@@ -58,7 +58,7 @@ jobs:
       - name: Get RAWLINE_API_REF
         id: ref
         run: |
-          API_REF=$(curl -fsSL https://raw.githubusercontent.com/throneproj/Throne/main/.github/workflows/build.yml | grep -oE 'RAWLINE_API_REF:\s*[a-f0-9]+' | awk '{print $2}' | head -n 1)
+          API_REF=$(curl -fsSL https://raw.githubusercontent.com/throneproj/Throne/dev/.github/workflows/build.yml | grep -oE 'RAWLINE_API_REF:\s*[a-f0-9]+' | awk '{print $2}' | head -n 1)
           [ -z "$API_REF" ] && API_REF="main"
           echo "api_ref=$API_REF" >> $GITHUB_OUTPUT
 
