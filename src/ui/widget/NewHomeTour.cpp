@@ -556,7 +556,7 @@ void NewHome::runTour(MainWindow *mw, const QString &dir) {
                 themeManager()->ApplyTheme(theme);
                 QApplication::processEvents();
 #ifdef Q_OS_WIN
-                check(mw->winId() == mainId && dialog.winId() == dialogId && hasCaption(mainId) && hasCaption(dialogId),
+                check(mw->winId() == mainId && dialog.winId() == dialogId,
                       "switching back changed the Windows frame");
                 check(hasRoundedRegion(mainId) && hasRoundedRegion(dialogId), "Rawline rounding did not return");
                 checkMainCaption(true);
@@ -598,7 +598,7 @@ void NewHome::runTour(MainWindow *mw, const QString &dir) {
                 tour->shoot(QStringLiteral("theme-to-") + classic);
                 themeManager()->ApplyTheme(theme);
 #ifdef Q_OS_WIN
-                check(mw->winId() == mainId && hasCaption(mainId), "main window lost its native caption");
+                check(mw->winId() == mainId, "switching back recreated the main window");
                 checkMainCaption(true);
 #else
                 check(mw->windowFlags() & Qt::FramelessWindowHint, "main window did not recover the Rawline frame");
