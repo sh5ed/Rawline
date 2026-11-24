@@ -3,7 +3,7 @@ name: Build Rawline on New Release
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 */6 * * *' # Проверка каждые 6 часов (занимает 3 секунды, если обновлений нет)
+    - cron: '0 */6 * * *'
 
 permissions:
   contents: read
@@ -19,10 +19,14 @@ jobs:
       - name: Compare upstream release tag with GHCR tag
         id: check
         run: |
-          LATEST_TAG=$(curl -fsSL https://api.github.com/repos/throneproj/Throne/releases/latest | grep -oE '"tag_name":\s*"[^"]+"' | cut -d'"' -f4)
+          LATEST_TAG=$(curl -fsSL "https://api.github.com/repos/throneproj/Throne/releases?per_page=1" | grep -oE '"tag_name":\s*"[^"]+"' | head -n 1 | cut -d'"' -f4)
           echo "Latest upstream tag: $LATEST_TAG"
 
-          # Проверяем, существует ли уже образ с этим тегом в вашем GHCR
+          if [ -z "$LATEST_TAG" ]; then
+            echo "Failed to fetch release tag"
+            exit 1
+          fi
+
           TOKEN=$(echo -n "${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}" | base64 -w0)
           STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
             -H "Authorization: Bearer $TOKEN" \
@@ -50,35 +54,33 @@ jobs:
         run: |
           mkdir -p build-ctx/linux-amd64 extracted
           cp docker/Dockerfile build-ctx/Dockerfile
-          RELEASE_URL=$(curl -fsSL https://api.github.com/repos/throneproj/Throne/releases/latest | grep -oE '"browser_download_url":\s*"[^"]*linux-amd64\.zip"' | cut -d'"' -f4 | head -n 1)
+
+          RELEASE_JSON=$(curl -fsSL "https://api.github.com/repos/throneproj/Throne/releases?per_page=1")
+          RELEASE_URL=$(echo "$RELEASE_JSON" | grep -oE '"browser_download_url":\s*"[^"]*linux-amd64\.zip"' | head -n 1 | cut -d'"' -f4)
+
+          if [ -z "$RELEASE_URL" ]; then
+            echo "Could not find linux-amd64.zip in release assets"
+            exit 1
+          fi
+
           echo "Downloading: $RELEASE_URL"
           curl -fsSL "$RELEASE_URL" -o rawline.zip
           unzip -q rawline.zip -d extracted
-          ls -la extracted
-    
-          # Если внутри архива одна папка — берём содержимое из неё, иначе из корня extracted
+
           SUBDIR=$(find extracted -mindepth 1 -maxdepth 1 -type d | head -n 1)
           if [ -n "$SUBDIR" ] && [ "$(ls -1 extracted | wc -l)" -eq 1 ]; then
             cp -r "$SUBDIR"/. build-ctx/linux-amd64/
           else
             cp -r extracted/. build-ctx/linux-amd64/
           fi
-    
+
           ls -la build-ctx/linux-amd64/
 
-      - name: Get RAWLINE_API_REF and patch Dockerfile
-        id: ref
+      - name: Patch Dockerfile for Throne-api
         run: |
-          API_REF=$(grep -rnE 'RAWLINE_API_REF' .github/workflows/ | grep -oE '[a-f0-9]{7,40}' | head -n 1)
-          if [ -z "$API_REF" ]; then
-            API_REF=$(git ls-remote https://github.com/throneproj/Throne-api.git refs/heads/dev | awk '{print $1}')
-          fi
-          [ -z "$API_REF" ] && API_REF="dev"
-          echo "Using RAWLINE_API_REF: $API_REF"
-          echo "api_ref=$API_REF" >> $GITHUB_OUTPUT
-  
-          # На случай если в Throne-api путь к CLI называется иначе, чем ./cmd/rawlinectl
-          sed -i 's|go build -trimpath -o /out/rawlinectl ./cmd/rawlinectl|go build -trimpath -o /out/rawlinectl $(dirname $(find . -name "main.go" \| grep -E "rawline\|ctl" \| head -n 1))|g' build-ctx/Dockerfile
+          sed -i 's|if \[ -z "\$RAWLINE_API_REF" \].*git checkout -q FETCH_HEAD|git clone --depth=1 https://github.com/throneproj/Throne-api.git .|g' build-ctx/Dockerfile
+          sed -i 's|go build -trimpath -o /out/rawlinectl ./cmd/rawlinectl|go build -trimpath -o /out/rawlinectl $(dirname $(find . -name "main.go" \| head -n 1))|g' build-ctx/Dockerfile
+          cat build-ctx/Dockerfile
 
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
@@ -94,7 +96,7 @@ jobs:
           platforms: linux/amd64
           push: true
           build-args: |
-            RAWLINE_API_REF=${{ steps.ref.outputs.api_ref }}
+            RAWLINE_API_REF=main
           tags: |
             ghcr.io/${{ github.repository_owner }}/rawline:latest
             ghcr.io/${{ github.repository_owner }}/rawline:${{ needs.check_release.outputs.tag }}
